@@ -15,14 +15,14 @@ email_parser = reqparse.RequestParser()
 email_parser.add_argument('email', type=str, required=True, help='User email address')
 
 ticket_model = api.model('Ticket', {
-    'name': fields.String(required=True, description='The ticket subject'),
+    'subject': fields.String(required=True, description='The ticket subject'),
     'description': fields.String(required=True, description='The ticket description'),
     'company_id': fields.Integer(required=True, description='The ID of the company'),
     'email': fields.String(required=True, description='User email for updates')
 })
 
 update_ticket_model = api.model('UpdateTicket', {
-    'subject': fields.String(description='The updated ticket subject'),
+    'name': fields.String(description='The updated ticket subject'),
     'description': fields.String(description='The updated ticket description'),
     'stage_id': fields.Integer(description='The updated stage ID of the ticket'),
     'message': fields.String(description='Message to be added to the ticket')

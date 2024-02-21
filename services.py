@@ -58,16 +58,57 @@ def attach_message(ticket_id, file_name, base64_content):
         'res_model': 'helpdesk.ticket',
         'res_id': ticket_id
     }])
+    execute_kw('mail.message', 'create', [{
+            'body': 'Attachment for the ticket',
+            'res_id': ticket_id,
+            'model': 'helpdesk.ticket',
+            'attachment_ids': [(6, 0, [attachment_id])]
+        }])
     if attachment_id:
         logger.info(f"Attachment created with ID: {attachment_id} for ticket ID: {ticket_id}")
     return attachment_id
 
 def update_ticket(ticket_id, updates):
     """Update a ticket in Odoo."""
-    if execute_kw('helpdesk.ticket', 'write', [[ticket_id], updates]):
-        logger.info(f"Ticket with ID {ticket_id} updated.")
-        return True
-    return False
+    try:
+        ticket_updates = {k: v for k, v in updates.items() if k != 'message'}
+        result = execute_kw('helpdesk.ticket', 'write', 
+                                [[ticket_id], ticket_updates])
+        if 'message' in updates and updates['message']:
+                execute_kw('mail.message', 'create', [{
+                'body': updates['message'],
+                'res_id': ticket_id,
+                'model': 'helpdesk.ticket'
+            }])
+        return result
+    except Exception as e:
+        logger.error(f"Error while updating ticket: {e}")
+        return False
+
+def send_email_odoo(template_id, ticket_id,company_id):
+    """Send an email using a predefined Odoo email template."""
+    
+    context = {'force_company': company_id, 'allowed_company_ids': [company_id]}
+    try:
+        sent = execute_kw('mail.template', 'send_mail', [template_id, ticket_id],
+            {'context': context}
+        )
+        if sent:
+            logger.info("Email successfully sent through Odoo.")
+            return True
+    except Exception as e:
+        logger.error(f"Failed to send email through Odoo: {e}")
+        return False
+
+    
+def get_mail_templates():
+    """Fetch mail templates from Odoo."""
+    try:
+        templates = execute_kw('mail.template', 'search_read', [[]], {'fields': ['id', 'name', 'model']})
+        return templates
+    except Exception as e:
+        logger.error(f"Error fetching mail templates from Odoo: {e}")
+        return None
 
 def view_tickets(page, limit):
     """View a paginated list of tickets."""

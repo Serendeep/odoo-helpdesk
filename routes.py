@@ -2,7 +2,7 @@ import base64
 from flask import request
 from flask_restx import Namespace, Resource, abort
 from models import attach_parser, view_parser, email_parser, ticket_model, update_ticket_model
-from services import (create_ticket_in_odoo, delete_ticket, attach_message, 
+from services import (create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, send_email_odoo, 
                     update_ticket, view_tickets, list_companies, 
                     view_ticket, register_email_in_odoo)
 from app import api
@@ -14,6 +14,16 @@ tickets_ns = Namespace('tickets', description='Ticket operations')
 class ExampleResource(Resource):
     def get(self):
         return {"message": "OK"}, 200
+    
+@tickets_ns.route('/mail_templates')
+class MailTemplates(Resource):
+    def get(self):
+        """Return a list of mail templates from Odoo."""
+        templates = get_mail_templates()
+        if templates is not None:
+            return {'templates': templates}, 200
+        else:
+            return {'message': 'Failed to fetch mail templates from Odoo.'}, 500
 
 @tickets_ns.route('/register_email')
 class RegisterEmail(Resource):
@@ -37,7 +47,10 @@ class TicketCreate(Resource):
             ticket_id = create_ticket_in_odoo(**data)
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
-            return {'ticket_id': ticket_id}, 201
+            else:
+                if not send_email_odoo(18, ticket_id, data.get('company_id')):
+                    print("Email sending failed.")
+                return {'ticket_id': ticket_id}, 201
         except Exception as e:
             abort(500, str(e))
 
