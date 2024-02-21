@@ -60,7 +60,7 @@ pip install -r requirements.txt
 4. Run the application:
 
 ```
-python app.py
+python3 app.py
 ```
 
 This starts a local development server on `http://localhost:5000`, where you can access the API endpoints.
