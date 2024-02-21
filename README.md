@@ -16,7 +16,7 @@ The Odoo Helpdesk API is a Flask-RESTx based API designed to integrate with Odoo
 
 ### Prerequisites
 
-- Python 3.6+
+- Python 3.10+
 - Flask, Flask-RESTx
 - Access to an Odoo instance for backend management.
 
@@ -70,6 +70,8 @@ This starts a local development server on `http://localhost:5000`, where you can
 ```
 deactivate
 ```
+
+Please ensure that you replace **python3** with **python** in the command to create the virtual environment if you are using Windows or if your environment recognizes **python** as **Python 3.x**.
 
 ## API Endpoints
 
