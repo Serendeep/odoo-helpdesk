@@ -126,10 +126,63 @@ def register_email_in_odoo(email):
         logger.info(f"New partner created with ID: {partner_id[0]} for email: {email}")
     return partner_id[0]
 
-def view_ticket(company_id):
-    """View tickets for a specific company."""
-    return execute_kw('helpdesk.ticket', 'search_read', [[['company_id', '=', company_id]]], {'fields': ['name', 'description', 'stage_id']})
+def view_ticket(company_id, page, limit):
+    """View paginated tickets for a specific company."""
+    try:
+        offset = (page - 1) * limit
+        tickets = execute_kw('helpdesk.ticket', 'search_read', 
+                            [[['company_id', '=', company_id]]], 
+                            {'offset': offset, 'limit': limit, 'fields': ['name', 'description', 'stage_id']})
+        total_tickets = execute_kw('helpdesk.ticket', 'search_count', [[['company_id', '=', company_id]]])
+        return {'tickets': tickets, 'total': total_tickets}
+    except Exception as e:
+        logger.error(f"Error fetching tickets for company ID {company_id}: {e}")
+        return None
 
-def list_companies():
-    """List all companies in Odoo."""
-    return execute_kw('res.company', 'search_read', [[]], {'fields': ['id', 'name']})
+
+def list_companies(page, limit):
+    """List paginated companies in Odoo."""
+    offset = (page - 1) * limit
+    companies = execute_kw('res.company', 'search_read', [[]], {
+        'offset': offset,
+        'limit': limit,
+        'fields': ['id', 'name']
+    })
+    total_companies = execute_kw('res.company', 'search_count', [[]])
+    return {'companies': companies, 'total': total_companies}
+    
+
+def get_tickets_by_user(user_id, page, limit):
+    """Fetch paginated tickets for a specific user from Odoo."""
+    try:
+        offset = (page - 1) * limit
+        tickets = execute_kw('helpdesk.ticket', 'search_read', 
+                            [[['partner_id', '=', user_id]]], 
+                            {'offset': offset, 'limit': limit, 'fields': ['id', 'name', 'description', 'stage_id']})
+        total_tickets = execute_kw('helpdesk.ticket', 'search_count', [[['partner_id', '=', user_id]]])
+        return {'tickets': tickets, 'total': total_tickets}
+    except Exception as e:
+        logger.error(f"Error fetching tickets for user ID {user_id}: {e}")
+        return None
+
+def get_ticket_by_id(ticket_id):
+    """Fetch a ticket by its ID from Odoo."""
+    try:
+        ticket = execute_kw('helpdesk.ticket', 'search_read', 
+                            [[['id', '=', ticket_id]]], 
+                            {'fields': ['id', 'name', 'description', 'stage_id', 'partner_id', 'message_ids']})
+        return ticket[0] if ticket else None
+    except Exception as e:
+        logger.error(f"Error fetching ticket with ID {ticket_id}: {e}")
+        return None
+    
+def get_messages_by_ticket_id(ticket_id):
+    """Fetch messages by ticket ID from Odoo."""
+    try:
+        messages = execute_kw('mail.message', 'search_read', 
+                            [[['res_id', '=', ticket_id]]], 
+                            {'fields': ['id', 'body']})
+        return messages
+    except Exception as e:
+        logger.error(f"Error fetching messages for ticket with ID {ticket_id}: {e}")
+        return None
