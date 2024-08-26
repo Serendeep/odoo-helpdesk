@@ -215,3 +215,21 @@ def verify_customer(email, company_id):
     # Replace with actual validation logic from Odoo or your database
     partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
     return bool(partner_id)
+
+def get_ticket_stages():
+    """Fetch the stages of a ticket in Odoo."""
+    try:
+        # Fetch the stages from the 'helpdesk.stage' model
+        stages = execute_kw('helpdesk.stage', 'search_read', [[]], {
+            'fields': ['id', 'name', 'sequence'],
+            'order': 'sequence asc'
+        })
+        if stages:
+            logger.info(f"Fetched {len(stages)} ticket stages.")
+            return stages
+        else:
+            logger.warning("No ticket stages found.")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching ticket stages: {e}", exc_info=True)
+        return None
