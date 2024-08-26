@@ -186,3 +186,32 @@ def get_messages_by_ticket_id(ticket_id):
     except Exception as e:
         logger.error(f"Error fetching messages for ticket with ID {ticket_id}: {e}")
         return None
+    
+def get_tickets_by_email(email, company_id, page=1, limit=10):
+    """Fetch paginated tickets by email and company_id from Odoo."""
+    try:
+        # Get the partner ID for the email and company_id
+        partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+        if not partner_id:
+            logger.error(f"No partner found with email: {email} and company_id: {company_id}")
+            return None
+        
+        # Fetch the tickets for the partner (user)
+        offset = (page - 1) * limit
+        tickets = execute_kw('helpdesk.ticket', 'search_read', 
+                            [[['partner_id', '=', partner_id[0]], ['company_id', '=', company_id]]], 
+                            {'offset': offset, 'limit': limit, 'fields': ['id', 'name', 'description', 'stage_id', 'company_id']})
+        total_tickets = execute_kw('helpdesk.ticket', 'search_count', [[['partner_id', '=', partner_id[0]], ['company_id', '=', company_id]]])
+
+        return {'tickets': tickets, 'total': total_tickets}
+    
+    except Exception as e:
+        logger.error(f"Error fetching tickets for email {email} and company_id {company_id}: {e}")
+        return None
+
+    
+def verify_customer(email, company_id):
+    """Verify if the customer is valid based on email and company ID."""
+    # Replace with actual validation logic from Odoo or your database
+    partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+    return bool(partner_id)

@@ -2,10 +2,11 @@ import base64
 from flask import request
 from flask_restx import Namespace, Resource, abort
 from models import attach_parser, view_parser, email_parser, ticket_model, update_ticket_model
-from services import (create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, get_messages_by_ticket_id, send_email_odoo, 
+from services import (create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, get_messages_by_ticket_id, get_tickets_by_email, send_email_odoo, 
                     update_ticket, view_tickets, list_companies, 
                     view_ticket, register_email_in_odoo, get_tickets_by_user, get_ticket_by_id)
 from app import api
+from utils import auth_required
 
 tickets_ns = Namespace('tickets', description='Ticket operations')
 
@@ -42,11 +43,17 @@ class RegisterEmail(Resource):
 
 @tickets_ns.route('/create')
 class TicketCreate(Resource):
+    @api.doc(security='Bearer')
+    @auth_required
     @tickets_ns.expect(ticket_model, validate=True)
     def post(self):
         """Create a ticket in Odoo."""
         data = api.payload
         try:
+            decrypted_data = request.decrypted_data 
+            data['company_id'] = decrypted_data['company_id'] 
+            data['email'] = decrypted_data['email']
+            
             ticket_id = create_ticket_in_odoo(**data)
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
@@ -57,23 +64,24 @@ class TicketCreate(Resource):
         except Exception as e:
             abort(500, str(e))
 
-@tickets_ns.route('/view_all')
+@tickets_ns.route('/view_all/<int:company_id>')
 class TicketList(Resource):
     @tickets_ns.expect(view_parser)
-    def get(self):
+    def get(self, company_id):
         """Retrieve paginated tickets in Odoo."""
         args = view_parser.parse_args()
         try:
-            tickets_info = view_tickets(args['page'], args['limit'])
+            
+            tickets_info = view_ticket(company_id, args['page'], args['limit'])
             return tickets_info
         except Exception as e:
             abort(500, str(e))
 
 @tickets_ns.route('/list_companies')
 class CompanyList(Resource):
-    """List paginated companies in Odoo."""
     @tickets_ns.expect(view_parser)
     def get(self):
+        """List paginated companies in Odoo."""
         args = view_parser.parse_args()
         try:
             companies = list_companies(args['page'], args['limit'])
@@ -175,5 +183,31 @@ class TicketMessage(Resource):
                 return {'ticket': ticket}, 200
             else:
                 return {'message': 'Ticket not found'}, 404
+        except Exception as e:
+            abort(500, str(e))
+            
+@tickets_ns.route('/by_email')
+class TicketsByEmail(Resource):
+    @api.doc(security='Bearer')
+    @auth_required
+    @tickets_ns.expect(view_parser)
+    def get(self):
+        """Retrieve paginated tickets associated with a specific email."""
+        args = view_parser.parse_args()
+        page = args.get('page', 1)
+        limit = args.get('limit', 10)
+
+        try:
+            # Get decrypted email and company_id from the header
+            decrypted_data = request.decrypted_data
+            email = decrypted_data.get('email')
+            company_id = decrypted_data.get('company_id')
+            
+            # Fetch the tickets by email
+            tickets_info = get_tickets_by_email(email, page, limit, company_id)
+            if tickets_info:
+                return tickets_info, 200
+            else:
+                return {'message': 'Failed to fetch tickets for the email.'}, 500
         except Exception as e:
             abort(500, str(e))
