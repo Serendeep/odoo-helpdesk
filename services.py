@@ -30,7 +30,7 @@ def authenticate():
 
 def create_ticket_in_odoo(subject, description, company_id, email):
     """Create a new ticket in Odoo."""
-    partner_id = register_email_in_odoo(email)
+    partner_id = register_email_in_odoo(email, company_id)
     context = {'force_company': company_id, 'allowed_company_ids': [company_id]}
     ticket_id = execute_kw('helpdesk.ticket', 'create', [{
         'name': subject,
@@ -118,11 +118,11 @@ def view_tickets(page, limit):
     total_tickets = execute_kw('helpdesk.ticket', 'search_count', [[]])
     return {'tickets': tickets, 'total': total_tickets}
 
-def register_email_in_odoo(email):
+def register_email_in_odoo(email, company_id):
     """Register an email in Odoo, creating a new partner if necessary."""
-    partner_id = execute_kw('res.partner', 'search', [[['email', '=', email]]])
+    partner_id = execute_kw('res.partner', 'search', [[['email', '=', email],['company_id', '=', company_id]]])
     if not partner_id:
-        partner_id = [execute_kw('res.partner', 'create', [{'name': email.split('@')[0], 'email': email}])]
+        partner_id = [execute_kw('res.partner', 'create', [{'name': email.split('@')[0], 'email': email, 'company_id': company_id}])]
         logger.info(f"New partner created with ID: {partner_id[0]} for email: {email}")
     return partner_id[0]
 
@@ -132,7 +132,7 @@ def view_ticket(company_id, page, limit):
         offset = (page - 1) * limit
         tickets = execute_kw('helpdesk.ticket', 'search_read', 
                             [[['company_id', '=', company_id]]], 
-                            {'offset': offset, 'limit': limit, 'fields': ['name', 'description', 'stage_id']})
+                            {'offset': offset, 'limit': limit, 'fields': ['name', 'description', 'stage_id', 'email', 'company_id']})
         total_tickets = execute_kw('helpdesk.ticket', 'search_count', [[['company_id', '=', company_id]]])
         return {'tickets': tickets, 'total': total_tickets}
     except Exception as e:
@@ -212,7 +212,6 @@ def get_tickets_by_email(email, company_id, page=1, limit=10):
     
 def verify_customer(email, company_id):
     """Verify if the customer is valid based on email and company ID."""
-    # Replace with actual validation logic from Odoo or your database
     partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
     return bool(partner_id)
 
@@ -232,4 +231,49 @@ def get_ticket_stages():
             return None
     except Exception as e:
         logger.error(f"Error fetching ticket stages: {e}", exc_info=True)
+        return None
+    
+def get_tickets_data(email, company_id, page=1, limit=10):
+    """Fetch paginated tickets by email with related messages and stage details."""
+    try:
+        # Get the partner ID for the email and company_id
+        partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+        if not partner_id:
+            logger.error(f"No partner found with email: {email}")
+            return None
+        
+        # Fetch the tickets for the partner (user)
+        offset = (page - 1) * limit
+        tickets = execute_kw('helpdesk.ticket', 'search_read', 
+                            [[['partner_id', '=', partner_id[0]], ['company_id', '=', company_id]]], 
+                            {'offset': offset, 'limit': limit, 'fields': ['id', 'name', 'description', 'stage_id', 'company_id', 'partner_id']})
+        
+        # If there are no tickets, return None
+        if not tickets:
+            logger.info(f"No tickets found for email: {email} and company_id: {company_id}")
+            return None
+        
+        # Fetch total count of tickets for pagination
+        total_tickets = execute_kw('helpdesk.ticket', 'search_count', 
+                                [[['partner_id', '=', partner_id[0]], ['company_id', '=', company_id]]])
+        
+        # Loop through the tickets and get their messages and stage details
+        for ticket in tickets:
+            ticket_id = ticket['id']
+            stage_id, stage_name = ticket['stage_id'] if ticket['stage_id'] else (None, None)
+            
+            # Get messages related to the ticket
+            messages = execute_kw('mail.message', 'search_read', 
+                                [[['res_id', '=', ticket_id], ['model', '=', 'helpdesk.ticket']]], 
+                                {'fields': ['id', 'body', 'date', 'author_id']})
+            
+            # Adding the messages, stage ID, and stage name to the ticket object
+            ticket['messages'] = messages
+            ticket['stage_id'] = stage_id
+            ticket['stage_name'] = stage_name
+        
+        # Return tickets along with the total count
+        return {'tickets': tickets, 'total': total_tickets}
+    except Exception as e:
+        logger.error(f"Error fetching tickets with messages and stage for email {email} and company_id {company_id}: {e}")
         return None

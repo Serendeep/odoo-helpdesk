@@ -1,10 +1,9 @@
 import base64
 from flask import request
 from flask_restx import Namespace, Resource, abort
-from models import attach_parser, view_parser, email_parser, ticket_model, update_ticket_model
-from services import (create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, send_email_odoo, 
-                    update_ticket, view_tickets, list_companies, 
-                    view_ticket, register_email_in_odoo, get_tickets_by_user, get_ticket_by_id)
+from models import attach_parser, view_parser, ticket_model, update_ticket_model
+from services import (create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, get_tickets_data, send_email_odoo, 
+                    update_ticket, list_companies, view_ticket, get_tickets_by_user, get_ticket_by_id)
 from app import api
 from utils import auth_required
 
@@ -16,7 +15,8 @@ class ExampleResource(Resource):
     def get(self):
         """Return a simple 'OK' message."""
         return {"message": "OK"}, 200
-    
+
+@api.deprecated
 @tickets_ns.route('/mail_templates')
 class MailTemplates(Resource):
     def get(self):
@@ -61,10 +61,13 @@ class PublicTicketCreate(Resource):
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
             else:
+                if not send_email_odoo(18, ticket_id, data.get('company_id')):
+                    print("Email sending failed.")
                 return {'ticket_id': ticket_id}, 201
         except Exception as e:
             abort(500, str(e))
 
+@api.deprecated
 @tickets_ns.route('/view_all/<int:company_id>')
 class TicketList(Resource):
     @tickets_ns.expect(view_parser)
@@ -78,6 +81,7 @@ class TicketList(Resource):
         except Exception as e:
             abort(500, str(e))
 
+@api.deprecated
 @tickets_ns.route('/list_companies')
 class CompanyList(Resource):
     @tickets_ns.expect(view_parser)
@@ -93,6 +97,7 @@ class CompanyList(Resource):
 @tickets_ns.route('/attach_file')
 class AttachFile(Resource):
     @tickets_ns.expect(attach_parser)
+    @api.doc(security='Bearer')
     @auth_required
     def post(self):
         """Attach a file to a ticket in Odoo."""
@@ -110,6 +115,7 @@ class AttachFile(Resource):
 @tickets_ns.route('/update/<int:ticket_id>')
 class TicketUpdate(Resource):
     @tickets_ns.expect(update_ticket_model, validate=True)
+    @api.doc(security='Bearer')
     @auth_required
     def put(self, ticket_id):
         """Update a ticket in Odoo."""
@@ -124,6 +130,7 @@ class TicketUpdate(Resource):
 
 @tickets_ns.route('/delete/<int:ticket_id>')
 class TicketDelete(Resource):
+    @api.doc(security='Bearer')
     @auth_required
     def delete(self, ticket_id):
         """Delete a ticket in Odoo."""
@@ -134,6 +141,7 @@ class TicketDelete(Resource):
         except Exception as e:
             abort(500, str(e))
 
+@api.deprecated
 @tickets_ns.route('/by_company/<int:company_id>')
 class TicketsByCompany(Resource):
     @tickets_ns.expect(view_parser)
@@ -165,9 +173,9 @@ class TicketsByUser(Resource):
         except Exception as e:
             abort(500, str(e))
 
+@api.deprecated
 @tickets_ns.route('/<int:ticket_id>')
 class TicketByID(Resource):
-    @auth_required
     def get(self, ticket_id):
         """Retrieve a ticket by its ID."""
         try:
@@ -179,9 +187,10 @@ class TicketByID(Resource):
         except Exception as e:
             abort(500, str(e))
             
+@api.deprecated
 @tickets_ns.route('/message/<int:ticket_id>')
 class TicketMessage(Resource):
-    @auth_required
+    # @auth_required
     def get(self, ticket_id):
         """Retrieve ticket messages by its ID."""
         try:
@@ -229,5 +238,29 @@ class TicketStages(Resource):
                 return {'stages': stages}, 200
             else:
                 return {'message': 'Failed to fetch ticket stages.'}, 500
+        except Exception as e:
+            abort(500, str(e))
+            
+@tickets_ns.route('/getTicketData')
+class GetTicketData(Resource):
+    @tickets_ns.expect(view_parser)
+    @api.doc(security='Bearer')
+    @auth_required
+    def get(self, email, company_id):
+        """Retrieve paginated tickets associated with a specific email."""
+        args = view_parser.parse_args()
+        page = args.get('page', 1)
+        limit = args.get('limit', 10)
+        
+        decrypted_data = request.decrypted_data
+        email = decrypted_data.get('email')
+        company_id = decrypted_data.get('company_id')
+        
+        try:
+            tickets_info = get_tickets_data(email, company_id, page, limit)
+            if tickets_info:
+                return tickets_info, 200
+            else:
+                return {'message': 'Failed to fetch tickets for the email.'}, 500
         except Exception as e:
             abort(500, str(e))
