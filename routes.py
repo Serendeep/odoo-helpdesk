@@ -249,7 +249,7 @@ class GetTicketData(Resource):
     @tickets_ns.expect(view_parser)
     @api.doc(security='Bearer')
     @auth_required
-    def get(self, email, company_id):
+    def get(self):
         """Retrieve paginated tickets associated with a specific email."""
         args = view_parser.parse_args()
         page = args.get('page', 1)
