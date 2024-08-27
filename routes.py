@@ -4,8 +4,8 @@ from flask_restx import Namespace, Resource, abort
 from models import attach_parser, view_parser, ticket_model, update_ticket_model, public_ticket_model
 from services import (
     create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, 
-    get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, get_tickets_data, 
-    send_email_odoo, update_ticket, list_companies, view_ticket, get_tickets_by_user, get_ticket_by_id
+    get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, get_tickets_by_user, get_tickets_data, 
+    send_email_odoo, update_ticket, list_companies, get_ticket_by_id, view_ticket
 )
 from app import api
 from utils import auth_required
