@@ -228,6 +228,7 @@ class TicketsByEmail(Resource):
         except Exception as e:
             abort(500, str(e))
 
+@api.deprecated
 @tickets_ns.route('/stages')
 class TicketStages(Resource):
     def get(self):
