@@ -17,6 +17,11 @@ email_parser.add_argument('email', type=str, required=True, help='User email add
 ticket_model = api.model('Ticket', {
     'subject': fields.String(required=True, description='The ticket subject'),
     'description': fields.String(required=True, description='The ticket description'),
+})
+
+public_ticket_model = api.model('PublicTicket', {
+    'subject': fields.String(required=True, description='The ticket subject'),
+    'description': fields.String(required=True, description='The ticket description'),
     'company_id': fields.Integer(required=True, description='The ID of the company'),
     'email': fields.String(required=True, description='User email for updates')
 })

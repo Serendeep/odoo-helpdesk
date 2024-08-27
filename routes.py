@@ -1,7 +1,7 @@
 import base64
 from flask import request
 from flask_restx import Namespace, Resource, abort
-from models import attach_parser, view_parser, ticket_model, update_ticket_model
+from models import attach_parser, view_parser, ticket_model, update_ticket_model, public_ticket_model
 from services import (create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, get_tickets_data, send_email_odoo, 
                     update_ticket, list_companies, view_ticket, get_tickets_by_user, get_ticket_by_id)
 from app import api
@@ -44,15 +44,16 @@ class TicketCreate(Resource):
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
             else:
-                if not send_email_odoo(18, ticket_id, data.get('company_id')):
+                email_sent = send_email_odoo(18, ticket_id, data.get('company_id'))
+                if not email_sent:
                     print("Email sending failed.")
-                return {'ticket_id': ticket_id}, 201
+                return {'ticket_id': ticket_id, 'email_sent': email_sent}, 201
         except Exception as e:
             abort(500, str(e))
             
 @tickets_ns.route('/create/public')
 class PublicTicketCreate(Resource):
-    @tickets_ns.expect(ticket_model, validate=True)
+    @tickets_ns.expect(public_ticket_model, validate=True)
     def post(self):
         """Create a public ticket in Odoo."""
         data = api.payload
@@ -61,9 +62,10 @@ class PublicTicketCreate(Resource):
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
             else:
-                if not send_email_odoo(18, ticket_id, data.get('company_id')):
+                email_sent = send_email_odoo(18, ticket_id, data.get('company_id'))
+                if not email_sent:
                     print("Email sending failed.")
-                return {'ticket_id': ticket_id}, 201
+                return {'ticket_id': ticket_id, 'email_sent': email_sent}, 201
         except Exception as e:
             abort(500, str(e))
 
