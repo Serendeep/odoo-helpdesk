@@ -104,7 +104,7 @@ def auth_required(f):
         
         if not bearer_token:
             logging.warning("No Bearer token found in the request.")
-            raise ValueError(" Bearer Token Malformed or Missing")
+            abort(500, 'Bearer Token malformed or missing')
         
         try:
             decrypted_data = decrypt_data(bearer_token, SECRET_KEY)

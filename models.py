@@ -12,7 +12,7 @@ view_parser.add_argument('page', type=int, required=False, default=1, help='Page
 view_parser.add_argument('limit', type=int, required=False, default=10, help='Number of tickets per page')
 
 email_parser = reqparse.RequestParser()
-email_parser.add_argument('email', type=str, required=True, help='User email address')
+email_parser.add_argument('new_email', type=str, required=True, help='Updated user email address')
 
 ticket_model = api.model('Ticket', {
     'subject': fields.String(required=True, description='The ticket subject'),

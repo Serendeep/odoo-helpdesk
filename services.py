@@ -1,3 +1,4 @@
+import re
 import xmlrpc.client
 import logging
 from config import URL, DB, USERNAME, API_KEY
@@ -152,17 +153,36 @@ def view_tickets(page, limit):
         logger.error(f"Error viewing tickets: {e}", exc_info=True)
         return {'tickets': [], 'total': 0}
 
+def validate_email_format(email):
+    """Validates the email format using a regex."""
+    email_regex = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
+    if not re.match(email_regex, email):
+        logging.error(f"Invalid email format: {email}")
+        raise ValueError("Invalid email format.")
+    logging.info(f"Email format validated: {email}")
+
 def register_email_in_odoo(email, company_id):
     """Register an email in Odoo, creating a new partner if necessary."""
     try:
         if not email or not company_id:
             logger.error("Email or company_id is missing.")
             return None
+        
+        # Validate email
+        validate_email_format(email)
+        
+        # Search for existing partner with the given email and company ID
         partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+        
         if not partner_id:
+            # If no partner is found, create a new one
             partner_id = [execute_kw('res.partner', 'create', [{'name': email.split('@')[0], 'email': email, 'company_id': company_id}])]
             logger.info(f"New partner created with ID: {partner_id[0]} for email: {email} in company ID: {company_id}")
+        
         return partner_id[0]
+    except ValueError as ve:
+        logger.error(f"Email format error: {ve}")
+        return None
     except Exception as e:
         logger.error(f"Error registering email: {e}", exc_info=True)
         return None
@@ -324,3 +344,16 @@ def get_tickets_data(email, company_id, page=1, limit=10):
     except Exception as e:
         logger.error(f"Error fetching tickets with messages and stage for email {email} and company_id {company_id}: {e}")
         return {'tickets': [], 'total': 0}
+
+def update_customer_email(email, new_email, company_id):
+    """Update customer email in Odoo."""
+    try:
+        partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+        if not partner_id:
+            logger.error(f"No partner found with email: {email} in company ID: {company_id}")
+            return False
+        execute_kw('res.partner', 'write', [[partner_id[0]], {'email': new_email}])
+        return True
+    except Exception as e:
+        logger.error(f"Error updating customer email: {e}", exc_info=True)
+        return False

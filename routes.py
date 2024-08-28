@@ -1,25 +1,25 @@
 import base64
 from flask import request
 from flask_restx import Namespace, Resource, abort
-from models import attach_parser, view_parser, ticket_model, update_ticket_model, public_ticket_model
+from models import attach_parser, view_parser, ticket_model, update_ticket_model, public_ticket_model, email_parser
 from services import (
     create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, 
     get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, get_tickets_by_user, get_tickets_data, 
-    send_email_odoo, update_ticket, list_companies, get_ticket_by_id, view_ticket
+    send_email_odoo, update_customer_email, update_ticket, list_companies, get_ticket_by_id, view_ticket
 )
 from app import api
 from utils import auth_required
 
 tickets_ns = Namespace('tickets', description='Ticket operations')
 
-@tickets_ns.route('/healthcheck')
+@tickets_ns.route('/healthCheck')
 class ExampleResource(Resource):
     def get(self):
         """Return a simple 'OK' message."""
         return {"message": "OK"}, 200
 
 @api.deprecated
-@tickets_ns.route('/mail_templates')
+@tickets_ns.route('/mailTemplates')
 class MailTemplates(Resource):
     def get(self):
         """Return a list of mail templates from Odoo."""
@@ -65,7 +65,7 @@ class PublicTicketCreate(Resource):
             abort(500, str(e))
 
 @api.deprecated
-@tickets_ns.route('/view_all/<int:company_id>')
+@tickets_ns.route('/viewAll/<int:company_id>')
 class TicketList(Resource):
     @tickets_ns.expect(view_parser)
     def get(self, company_id):
@@ -78,7 +78,7 @@ class TicketList(Resource):
             abort(500, str(e))
 
 @api.deprecated
-@tickets_ns.route('/list_companies')
+@tickets_ns.route('/listCompanies')
 class CompanyList(Resource):
     @tickets_ns.expect(view_parser)
     def get(self):
@@ -90,7 +90,7 @@ class CompanyList(Resource):
         except Exception as e:
             abort(500, str(e))
 
-@tickets_ns.route('/attach_file')
+@tickets_ns.route('/attachFile')
 class AttachFile(Resource):
     @tickets_ns.expect(attach_parser)
     @api.doc(security='Bearer')
@@ -138,7 +138,7 @@ class TicketDelete(Resource):
             abort(500, str(e))
 
 @api.deprecated
-@tickets_ns.route('/by_company/<int:company_id>')
+@tickets_ns.route('/byCompany/<int:company_id>')
 class TicketsByCompany(Resource):
     @tickets_ns.expect(view_parser)
     def get(self, company_id):
@@ -153,7 +153,7 @@ class TicketsByCompany(Resource):
             abort(500, str(e))
 
 @api.deprecated
-@tickets_ns.route('/by_user/<int:user_id>')
+@tickets_ns.route('/byUser/<int:user_id>')
 class TicketsByUser(Resource):
     @tickets_ns.expect(view_parser)
     def get(self, user_id):
@@ -193,7 +193,7 @@ class TicketMessage(Resource):
         except Exception as e:
             abort(500, str(e))
 
-@tickets_ns.route('/by_email')
+@tickets_ns.route('/byEmail')
 class TicketsByEmail(Resource):
     @api.doc(security='Bearer')
     @auth_required
@@ -249,5 +249,25 @@ class GetTicketData(Resource):
             if tickets_info:
                 return tickets_info, 200
             return {'message': 'Failed to fetch tickets for the email.'}, 500
+        except Exception as e:
+            abort(500, str(e))
+
+@tickets_ns.route('/updateCustomerEmail')
+class UpdateCustomerEmail(Resource):
+    @tickets_ns.expect(email_parser)
+    @api.doc(security='Bearer')
+    @auth_required
+    def post(self):
+        """Update customer email in Odoo."""
+        args = view_parser.parse_args()
+        new_email = args.get('new_email')
+        
+        decrypted_data = request.decrypted_data
+        email = decrypted_data.get('email')
+        company_id = decrypted_data.get('company_id')
+        
+        try:
+            update_customer_email(email, new_email, company_id)
+            return {'message': 'Customer email updated successfully.'}, 200
         except Exception as e:
             abort(500, str(e))
