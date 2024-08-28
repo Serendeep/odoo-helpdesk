@@ -161,7 +161,7 @@ def register_email_in_odoo(email, company_id):
         partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
         if not partner_id:
             partner_id = [execute_kw('res.partner', 'create', [{'name': email.split('@')[0], 'email': email, 'company_id': company_id}])]
-            logger.info(f"New partner created with ID: {partner_id[0]} for email: {email}")
+            logger.info(f"New partner created with ID: {partner_id[0]} for email: {email} in company ID: {company_id}")
         return partner_id[0]
     except Exception as e:
         logger.error(f"Error registering email: {e}", exc_info=True)
@@ -265,7 +265,7 @@ def get_tickets_by_email(email, company_id, page=1, limit=10):
 def verify_customer(email, company_id):
     """Verify if the customer is valid based on email and company ID."""
     try:
-        partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+        partner_id = register_email_in_odoo(email, company_id)
         return bool(partner_id)
     except Exception as e:
         logger.error(f"Error verifying customer: {e}", exc_info=True)
