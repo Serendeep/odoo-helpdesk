@@ -357,3 +357,38 @@ def update_customer_email(email, new_email, company_id):
     except Exception as e:
         logger.error(f"Error updating customer email: {e}", exc_info=True)
         return False
+
+def add_message_to_ticket(email, company_id, ticket_id, message):
+    """Add a message to an existing ticket by retrieving the partner ID using the email."""
+    try:
+        # Retrieve partner ID using email and company_id
+        partner_id = execute_kw('res.partner', 'search', [[['email', '=', email], ['company_id', '=', company_id]]])
+        
+        if not partner_id:
+            logger.error(f"No partner found with email: {email} and company_id: {company_id}")
+            return False
+
+        # Validate that the ticket exists and is linked to the partner
+        ticket = execute_kw('helpdesk.ticket', 'search', [[['id', '=', ticket_id], ['partner_id', '=', partner_id[0]]]])
+        if not ticket:
+            logger.error(f"Ticket with ID {ticket_id} not found or not associated with the partner.")
+            return False
+
+        # Add the message to the ticket
+        result = execute_kw('mail.message', 'create', [{
+            'body': message,
+            'res_id': ticket_id,
+            'model': 'helpdesk.ticket',
+            'author_id': partner_id[0],
+        }])
+
+        if result:
+            logger.info(f"Message successfully added to ticket with ID {ticket_id} by partner {partner_id[0]}")
+            return True
+        else:
+            logger.error("Failed to add message to the ticket.")
+            return False
+
+    except Exception as e:
+        logger.error(f"Error adding message to ticket: {e}", exc_info=True)
+        return False

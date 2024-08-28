@@ -19,6 +19,11 @@ ticket_model = api.model('Ticket', {
     'description': fields.String(required=True, description='The ticket description'),
 })
 
+ticket_message = api.model('TicketMessage', {
+    'ticket_id': fields.Integer(required=True, description='The ID of the ticket'),
+    'message': fields.String(required=True, description='The message content'),
+})
+
 public_ticket_model = api.model('PublicTicket', {
     'subject': fields.String(required=True, description='The ticket subject'),
     'description': fields.String(required=True, description='The ticket description'),

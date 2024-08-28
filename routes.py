@@ -1,9 +1,9 @@
 import base64
 from flask import request
 from flask_restx import Namespace, Resource, abort
-from models import attach_parser, view_parser, ticket_model, update_ticket_model, public_ticket_model, email_parser
+from models import attach_parser, view_parser, ticket_model, update_ticket_model, public_ticket_model, email_parser, ticket_message
 from services import (
-    create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, 
+    add_message_to_ticket, create_ticket_in_odoo, delete_ticket, attach_message, get_mail_templates, 
     get_messages_by_ticket_id, get_ticket_stages, get_tickets_by_email, get_tickets_by_user, get_tickets_data, 
     send_email_odoo, update_customer_email, update_ticket, list_companies, get_ticket_by_id, view_ticket
 )
@@ -267,7 +267,31 @@ class UpdateCustomerEmail(Resource):
         company_id = decrypted_data.get('company_id')
         
         try:
-            update_customer_email(email, new_email, company_id)
-            return {'message': 'Customer email updated successfully.'}, 200
+            email = update_customer_email(email, new_email, company_id)
+            if email:
+                return {'message': 'Customer email updated successfully.'}, 200
+            return {'message': 'Failed to update customer email.'}, 500
+        except Exception as e:
+            abort(500, str(e))
+
+@tickets_ns.route('/ticketMessage')
+class TicketMessage(Resource):
+    @tickets_ns.expect(ticket_message)
+    @api.doc(security='Bearer')
+    @auth_required
+    def post(self):
+        """Create a ticket message in Odoo."""
+        data = api.payload
+        
+        decrypted_data = request.decrypted_data
+        email = decrypted_data.get('email')
+        company_id = decrypted_data.get('company_id')
+        
+        try:
+            message = add_message_to_ticket(email, company_id, **data)
+            
+            if message:
+                return {'message': 'Message added successfully.'}, 200
+            return {'message': 'Failed to add message.'}, 500
         except Exception as e:
             abort(500, str(e))
