@@ -319,7 +319,7 @@ def get_tickets_data(email, company_id, page=1, limit=10):
         offset = (page - 1) * limit
         tickets = execute_kw('helpdesk.ticket', 'search_read', 
                             [[['partner_id', '=', partner_id[0]], ['company_id', '=', company_id]]], 
-                            {'offset': offset, 'limit': limit, 'fields': ['id', 'name', 'description', 'stage_id', 'company_id', 'partner_id']})
+                            {'offset': offset, 'limit': limit, 'fields': ['id', 'name', 'description', 'create_date','stage_id', 'company_id', 'partner_id']})
         
         if not tickets:
             logger.info(f"No tickets found for email: {email} and company_id: {company_id}")

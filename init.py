@@ -11,4 +11,4 @@ authorizations = {
 }
 
 # Define the Api instance
-api = Api(version='1.0', title='Helpdesk API', description='A simple Helpdesk API', authorizations=authorizations)
+api = Api(version='1.0', title='Helpdesk API', description='A simple Helpdesk API', authorizations=authorizations, doc='/docs')
