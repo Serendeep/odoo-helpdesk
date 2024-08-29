@@ -167,9 +167,10 @@ class TicketsByUser(Resource):
         except Exception as e:
             abort(500, str(e))
 
-@api.deprecated
 @tickets_ns.route('/<int:ticket_id>')
 class TicketByID(Resource):
+    @api.doc(security='Bearer')
+    @auth_required
     def get(self, ticket_id):
         """Retrieve a ticket by its ID."""
         try:
@@ -183,6 +184,8 @@ class TicketByID(Resource):
 @api.deprecated
 @tickets_ns.route('/message/<int:ticket_id>')
 class TicketMessage(Resource):
+    @api.doc(security='Bearer')
+    @auth_required
     def get(self, ticket_id):
         """Retrieve ticket messages by its ID."""
         try:

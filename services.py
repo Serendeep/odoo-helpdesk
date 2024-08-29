@@ -242,8 +242,12 @@ def get_ticket_by_id(ticket_id):
     try:
         ticket = execute_kw('helpdesk.ticket', 'search_read', 
                             [[['id', '=', ticket_id]]], 
-                            {'fields': ['id', 'name', 'description', 'stage_id', 'partner_id', 'message_ids']})
+                            {'fields': ['id', 'name', 'description', 'stage_id', 'partner_id']})
         if ticket:
+            messages = execute_kw('mail.message', 'search_read', 
+                                [[['res_id', '=', ticket_id], ['model', '=', 'helpdesk.ticket']]], 
+                                {'fields': ['id', 'body', 'date', 'author_id']})
+            ticket[0]['messages'] = messages
             return ticket[0]
         else:
             logger.warning(f"No ticket found with ID: {ticket_id}")
@@ -257,7 +261,7 @@ def get_messages_by_ticket_id(ticket_id):
     try:
         messages = execute_kw('mail.message', 'search_read', 
                             [[['res_id', '=', ticket_id]]], 
-                            {'fields': ['id', 'body']})
+                            {'fields': ['id', 'body', 'date', 'author_id']})
         return messages if messages else []
     except Exception as e:
         logger.error(f"Error fetching messages for ticket with ID {ticket_id}: {e}", exc_info=True)
