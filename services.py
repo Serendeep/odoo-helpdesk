@@ -247,7 +247,7 @@ def get_ticket_by_id(ticket_id):
             messages = execute_kw('mail.message', 'search_read', 
                                 [[['res_id', '=', ticket_id], ['model', '=', 'helpdesk.ticket']]], 
                                 {'fields': ['id', 'body', 'date', 'author_id']})
-            ticket[0]['messages'] = messages
+            ticket[0]['messages'] = messages[:-1]
             return ticket[0]
         else:
             logger.warning(f"No ticket found with ID: {ticket_id}")
