@@ -37,3 +37,35 @@ update_ticket_model = api.model('UpdateTicket', {
     'stage_id': fields.Integer(description='The updated stage ID of the ticket'),
     'message': fields.String(description='Message to be added to the ticket')
 })
+
+# Respponse Models
+message_model = api.model('MessageModel', {
+    'message': fields.String(required=True, description='Message content')
+})
+
+ticket_create_model = api.model('TicketCreateModel', {
+    'ticket_id': fields.Integer(description='Ticket ID'),
+    'email_sent': fields.Boolean(description='Email sent status')
+})
+
+# Define a model for ticket details (nested inside tickets list)
+ticket_detail_model = api.model('TicketDetailModel', {
+    'id': fields.Integer(description='Ticket ID'),
+    'subject': fields.String(description='Ticket Subject'),
+    'status': fields.String(description='Ticket Status')
+})
+
+# Define a model for list of email templates
+templates_model = api.model('TemplatesModel', {
+    'templates': fields.List(fields.String, description='List of email templates')
+})
+
+# Use Nested fields for a list of tickets (each ticket uses the ticket_detail_model)
+ticket_list_model = api.model('TicketListModel', {
+    'tickets': fields.List(fields.Nested(ticket_detail_model), description='List of tickets')
+})
+
+# Define a model for ticket object
+ticket_dict_model = api.model('TicketDictModel', {
+    'ticket': fields.Nested(ticket_detail_model, description='Ticket details')
+})
