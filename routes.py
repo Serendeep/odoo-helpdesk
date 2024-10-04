@@ -70,7 +70,7 @@ class PublicTicketCreate(Resource):
             ticket_id = create_ticket_in_odoo(**data)
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
-            email_sent = send_email_odoo(18, ticket_id, data.get('company_id'))
+            email_sent = send_email_odoo(13, ticket_id, data.get('company_id'))
             return {'ticket_id': ticket_id, 'email_sent': email_sent}, 201
         except Exception as e:
             abort(500, str(e))
@@ -90,7 +90,7 @@ class TicketList(Resource):
         except Exception as e:
             abort(500, str(e))
 
-@api.hide
+
 @tickets_ns.route('/listCompanies')
 class CompanyList(Resource):
     @tickets_ns.expect(view_parser)
