@@ -52,8 +52,7 @@ class TicketCreate(Resource):
             ticket_id = create_ticket_in_odoo(**data)
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
-            email_sent = send_email_odoo(18, ticket_id, data.get('company_id'))
-            return {'ticket_id': ticket_id, 'email_sent': email_sent}, 201
+            return {'ticket_id': ticket_id}, 201
         except Exception as e:
             abort(500, str(e))
 
@@ -70,8 +69,7 @@ class PublicTicketCreate(Resource):
             ticket_id = create_ticket_in_odoo(**data)
             if not ticket_id:
                 abort(400, 'Failed to create ticket.')
-            email_sent = send_email_odoo(13, ticket_id, data.get('company_id'))
-            return {'ticket_id': ticket_id, 'email_sent': email_sent}, 201
+            return {'ticket_id': ticket_id}, 201
         except Exception as e:
             abort(500, str(e))
 

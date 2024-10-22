@@ -37,26 +37,79 @@ def authenticate():
     return None, None
 
 def create_ticket_in_odoo(subject, description, company_id, email):
-    """Create a new ticket in Odoo."""
+    """Create a new ticket in Odoo and send notification using the helpdesk alias email based on the company."""
     try:
         partner_id = register_email_in_odoo(email, company_id)
         if not partner_id:
             logger.warning("Could not create ticket due to missing partner.")
             return None
-        context = {'force_company': company_id, 'allowed_company_ids': [company_id]}
+        
+        # Fetch the helpdesk team for the company
+        helpdesk_team = execute_kw('helpdesk.team', 'search_read', [
+            [['company_id', '=', company_id]]  # Filter by company ID
+        ], {'fields': ['name', 'alias_name', 'alias_domain'], 'limit': 1})
+        
+        if not helpdesk_team or not helpdesk_team[0].get('alias_name') or not helpdesk_team[0].get('alias_domain'):
+            logger.error(f"No alias configured for helpdesk team for company ID: {company_id}")
+            return None
+
+        helpdesk_name = helpdesk_team[0].get('name', 'Support Team')  # Fallback to 'Support Team' if no name is available
+        helpdesk_alias = f"{helpdesk_team[0]['alias_name']}@{helpdesk_team[0]['alias_domain']}"  # Helpdesk alias email
+        company_name = get_company_name(company_id)
+
+        context = {
+            'force_company': company_id,
+            'allowed_company_ids': [company_id]
+        }
+        
+        # Create the ticket
         ticket_id = execute_kw('helpdesk.ticket', 'create', [{
             'name': subject,
             'description': description,
             'company_id': company_id,
             'partner_id': partner_id,
         }], {'context': context})
+        
         if ticket_id:
             logger.info(f"Ticket created with ID: {ticket_id}")
+
+
+            # Use the helpdesk alias email as 'From' address: "Helpdesk Team Name" <alias@domain.com>
+            formatted_email_from = f'"{company_name} {helpdesk_name}" <{helpdesk_alias}>'
+
+            # Trigger the email notification with helpdesk alias as 'From' and proper threading
+            execute_kw('helpdesk.ticket', 'message_post', [ticket_id], {
+                'body': 'We have received your request ticket has been created with the ID of ' + str(ticket_id) + '. We and will get back to you as soon as possible.',
+                'subject': f'[Ticket #{ticket_id}] {subject}',  # Ensure the subject contains the ticket ID
+                'email_from': formatted_email_from,  # Custom 'From' name and helpdesk alias email
+                'partner_ids': [partner_id],  # Send to the customer
+                'message_type': 'email',  # Set the message type to email
+                'subtype_id': 1  # 'Discussion' subtype
+            })
+
+            logger.info(f"Notification triggered for ticket ID: {ticket_id} from {formatted_email_from}")
         else:
             logger.error("Failed to create ticket.")
         return ticket_id
+    
     except Exception as e:
         logger.error(f"Error creating ticket: {e}", exc_info=True)
+        return None
+
+def get_company_name(company_id):
+    """Retrieve the company name for a given company_id."""
+    try:
+        # Read the company name from the res.company model
+        company_info = execute_kw('res.company', 'read', [company_id], {'fields': ['name']})
+        if company_info and company_info[0].get('name'):
+            company_name = company_info[0].get('name')
+            logger.info(f"Company name for company ID {company_id}: {company_name}")
+            return company_name
+        else:
+            logger.warning(f"Company name not found for company ID: {company_id}")
+            return None
+    except Exception as e:
+        logger.error(f"Error fetching company name: {e}", exc_info=True)
         return None
 
 def delete_ticket(ticket_id):
@@ -72,8 +125,9 @@ def delete_ticket(ticket_id):
     return False
 
 def attach_message(ticket_id, file_name, base64_content):
-    """Attach a message to a ticket in Odoo."""
+    """Attach a message with an attachment to a ticket in Odoo."""
     try:
+        # Create the attachment
         attachment_id = execute_kw('ir.attachment', 'create', [{
             'name': file_name,
             'datas': base64_content,
@@ -81,13 +135,15 @@ def attach_message(ticket_id, file_name, base64_content):
             'res_model': 'helpdesk.ticket',
             'res_id': ticket_id
         }])
+
         if attachment_id:
-            execute_kw('mail.message', 'create', [{
+            # Post the message with the attachment to the ticket's thread
+            execute_kw('helpdesk.ticket', 'message_post', [ticket_id], {
                 'body': 'Attachment for the ticket',
-                'res_id': ticket_id,
-                'model': 'helpdesk.ticket',
-                'attachment_ids': [(6, 0, [attachment_id])]
-            }])
+                'message_type': 'comment',  # Type of message
+                'subtype_id': 1,            # Subtype 'Discussion'
+                'attachment_ids': [(6, 0, [attachment_id])]  # Link the attachment to the message
+            })
             logger.info(f"Attachment created with ID: {attachment_id} for ticket ID: {ticket_id}")
         else:
             logger.error("Failed to create attachment.")
@@ -96,29 +152,51 @@ def attach_message(ticket_id, file_name, base64_content):
         logger.error(f"Error attaching message: {e}", exc_info=True)
         return None
 
+
 def update_ticket(ticket_id, updates):
-    """Update a ticket in Odoo."""
+    """Update a ticket in Odoo and automatically post messages as part of the thread."""
     try:
         if not ticket_id or not updates:
             logger.error("Ticket ID or updates are missing.")
             return False
+        
+        # Separate ticket field updates from the message (if any)
         ticket_updates = {k: v for k, v in updates.items() if k != 'message'}
-        result = execute_kw('helpdesk.ticket', 'write', [[ticket_id], ticket_updates])
-        if 'message' in updates and updates['message']:
-            execute_kw('mail.message', 'create', [{
-                'body': updates['message'],
-                'res_id': ticket_id,
-                'model': 'helpdesk.ticket'
-            }])
+        message = updates.get('message', None)
+
+        # Update the ticket fields if there are any updates
+        if ticket_updates:
+            result = execute_kw('helpdesk.ticket', 'write', [[ticket_id], ticket_updates])
+            if not result:
+                logger.error(f"Failed to update ticket fields for ticket ID: {ticket_id}")
+                return False
+        else:
+            result = True
+
+        # Post message to ticket thread (if there is a message)
+        if message:
+            execute_kw('helpdesk.ticket', 'message_post', [ticket_id], {
+                'body': message,
+                'message_type': 'comment',  # Type of message
+                'subtype_id': 1,            # Subtype 'Discussion'
+            })
+            logger.info(f"Message added to ticket ID: {ticket_id}")
+
         return result
+    
     except Exception as e:
         logger.error(f"Error while updating ticket: {e}", exc_info=True)
         return False
 
+
 def send_email_odoo(template_id, ticket_id, company_id):
     """Send an email using a predefined Odoo email template."""
     try:
-        context = {'force_company': company_id, 'allowed_company_ids': [company_id]}
+        context = {
+            'force_company': company_id, 
+            'allowed_company_ids': [company_id],
+            'mail_post_autofollow': True,
+        }
         sent = execute_kw('mail.template', 'send_mail', [template_id, ticket_id], {'context': context})
         if sent:
             logger.info("Email successfully sent through Odoo.")
